@@ -1,6 +1,10 @@
 -module(local_websocket).
 -export([start/0]).
 
+-define(LOG_INFO(Format), io:format("line:~p module:~p " ++ Format, [?LINE, ?MODULE])).
+%% -define(LOG_INFO(Format, Args), io:format("line:~p module:~p " ++ Format, [?LINE, ?MODULE]++Args)).
+-define(LOG_INFO(Format, Args), io:format("line:~p " ++ Format, [?LINE | Args])).
+
 start() ->
   case gen_tcp:listen(8181, [
     binary,
@@ -11,13 +15,13 @@ start() ->
     {keepalive,true}
   ]) of
     {ok,Listen} ->
-      spawn(fun()->par_connect(Listen) end);
-    _Err -> io:format("Accept failed:~w~n", [_Err])
+      spawn(fun()-> par_connect(Listen) end);
+    _Err -> ?LOG_INFO("Accept failed:~w", [_Err])
     end.
 
 par_connect(Listen) ->
-  {ok,Socket} = gen_tcp:accept(Listen),
-  spawn(fun()->par_connect(Listen) end),
+  {ok, Socket} = gen_tcp:accept(Listen),
+  spawn(fun()-> par_connect(Listen) end),
   wait(Socket).
 
 wait(Socket) ->
@@ -26,7 +30,7 @@ wait(Socket) ->
       gen_tcp:send(Socket, list_to_binary(handshake(Bin))),
       loop(Socket);
     Any ->
-      io:format("Received(2): ~p~n",[Any]),
+      ?LOG_INFO("Received(2): ~p", [Any]),
       wait(Socket)
   end.
 
@@ -34,12 +38,12 @@ loop(Socket) ->
   receive
     {tcp,Socket,Data} ->
       %% 打印Brorser发送上来的数据
-      io:format("Received(3): ~s~n",[websocket_data(Data)]),
+      ?LOG_INFO("Received(3): ~p", [websocket_data(Data)]),
       %% 向Brorser发送数据
       gen_tcp:send(Socket, [build_client_data( integer_to_binary(binary_to_integer(websocket_data(Data))*2 ))]),
       loop(Socket);
     Any ->
-      io:format("Received(4): ~p~n", [Any]),
+      ?LOG_INFO("Received(4): ~p", [Any]),
       loop(Socket)
   end.
 
